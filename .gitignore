@@ -22,3 +22,7 @@ logs
 .env
 .env.*
 !.env.example
+
+# Synced from sibling SDK + spec repos by scripts/sync-docs.mjs on every dev/build.
+content
+public/diagrams
