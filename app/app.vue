@@ -16,6 +16,15 @@ useHead({
         'A transport-agnostic wire protocol for submitting, observing, and controlling long-running AI agent jobs — sessions, time-bounded leases, budget enforcement, provisioned credentials, and resumable event streams.',
     },
   ],
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    {
+      rel: 'preload',
+      as: 'style',
+      href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&display=swap',
+    },
+  ],
 });
 
 const nav = [
@@ -205,22 +214,21 @@ const footerColumns = [
   <InkApp :class="['arpc-shell', theme]">
     <InkHeader class="ink-header arpc-header">
       <div class="ink-header__inner arpc-header__inner">
-        <div class="arpc-header__brand">
-          <InkWordmark class="ink-wordmark">ARCP</InkWordmark>
-          <span class="arpc-header__pip ink-meta ink-meta--soft">agent runtime · control protocol</span>
-        </div>
-
-        <nav class="ink-header__nav arpc-header__nav" aria-label="Section">
-          <a
-            v-for="item in nav"
-            :key="item.href"
-            class="ink-header__link"
-            :href="item.href"
-          >{{ item.label }}</a>
-        </nav>
+        <label class="arpc-header__search" aria-label="Search">
+          <FontAwesomeIcon
+            class="arpc-header__search-icon"
+            :icon="['fal', 'magnifying-glass']"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            class="arpc-header__search-input"
+            placeholder="Search the spec…"
+            spellcheck="false"
+          />
+        </label>
 
         <div class="arpc-header__right">
-          <span class="ink-meta ink-meta--soft arpc-header__ver">v1.1 · draft</span>
           <button
             type="button"
             class="arpc-header__theme"
@@ -230,14 +238,12 @@ const footerColumns = [
           >
             <FontAwesomeIcon
               class="arpc-header__theme-glyph"
-              :icon="['fal', isNight ? 'sun' : 'moon']"
+              :icon="['fal', isNight ? 'moon' : 'sun']"
               aria-hidden="true"
             />
-            <span class="arpc-header__theme-label">{{ isNight ? 'night' : 'day' }}</span>
           </button>
-          <a class="arpc-header__github" href="#">
+          <a class="arpc-header__github" href="#" aria-label="GitHub">
             <FontAwesomeIcon :icon="['fab', 'github']" aria-hidden="true" />
-            <span>GitHub</span>
           </a>
         </div>
       </div>
@@ -555,6 +561,9 @@ const footerColumns = [
 
 <style>
 /* ── shell ───────────────────────────────────────────────────────────── */
+html, body {
+  background: var(--bg);
+}
 .arpc-shell {
   min-height: 100vh;
 }
@@ -571,10 +580,50 @@ const footerColumns = [
 .arpc-header__inner {
   max-width: var(--iw-w-wide);
   margin: 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 480px) 1fr;
   align-items: center;
   gap: var(--iw-space-4);
   padding: 14px var(--iw-space-6);
+}
+.arpc-header__search {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--iw-radius);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  transition: border-color var(--iw-dur) var(--iw-ease);
+  min-width: 0;
+}
+.arpc-header__search:focus-within { border-color: var(--accent); }
+.arpc-header__search-icon {
+  color: var(--ink-soft);
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+.arpc-header__search-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink);
+}
+.arpc-header__search-input::placeholder {
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.arpc-header__search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
 }
 .arpc-header__brand {
   display: flex;
@@ -593,7 +642,8 @@ const footerColumns = [
   margin-left: var(--iw-space-4);
 }
 .arpc-header__right {
-  margin-left: auto;
+  grid-column: 3;
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: var(--iw-space-3);
@@ -606,45 +656,26 @@ const footerColumns = [
 .arpc-header__theme {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  padding: 6px 12px;
-  border-radius: var(--iw-radius);
-  border: 1px solid var(--rule);
+  justify-content: center;
+  padding: 0;
+  border: 0;
   background: transparent;
+  color: var(--ink-soft);
   cursor: pointer;
-  transition: color var(--iw-dur) var(--iw-ease), border-color var(--iw-dur) var(--iw-ease);
+  transition: color var(--iw-dur) var(--iw-ease);
 }
-.arpc-header__theme:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.arpc-header__theme-glyph {
-  width: 12px;
-  height: 12px;
-  color: var(--accent);
-}
-.arpc-header__theme-glyph.svg-inline--fa { font-size: 12px; }
+.arpc-header__theme:hover { color: var(--accent); }
+.arpc-header__theme-glyph.svg-inline--fa { font-size: 22px; }
 .arpc-header__github {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-family: 'Newsreader', serif;
-  font-style: italic;
-  font-size: 15px;
+  justify-content: center;
   color: var(--ink-soft);
   text-decoration: none;
-  padding: 4px 12px;
   transition: color var(--iw-dur) var(--iw-ease);
 }
-.arpc-header__github .svg-inline--fa { font-size: 16px; }
-.arpc-header__github:hover {
-  color: var(--accent);
-}
+.arpc-header__github .svg-inline--fa { font-size: 22px; }
+.arpc-header__github:hover { color: var(--accent); }
 @media (max-width: 1080px) {
   .arpc-header__nav,
   .arpc-header__pip { display: none; }
@@ -653,10 +684,6 @@ const footerColumns = [
   .arpc-header__inner { padding: 12px var(--iw-space-4); }
   .arpc-header__ver { display: none; }
 }
-@media (max-width: 480px) {
-  .arpc-header__theme-label { display: none; }
-}
-
 /* ── main / sections ─────────────────────────────────────────────────── */
 .arpc-main {
   max-width: var(--iw-w-wide);
@@ -877,7 +904,7 @@ const footerColumns = [
 .arpc-note__body {
   font-family: 'Newsreader', serif;
   font-style: italic;
-  font-size: 16px;
+  font-size: 22px;
   color: var(--ink-soft);
   line-height: 1.5;
   margin: 0;

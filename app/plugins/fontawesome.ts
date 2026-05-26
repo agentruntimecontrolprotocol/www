@@ -13,6 +13,7 @@ import {
 } from '@fortawesome/free-brands-svg-icons';
 import {
   faCode,
+  faMagnifyingGlass,
   faMoon,
   faSun,
 } from '@fortawesome/pro-light-svg-icons';
@@ -26,6 +27,7 @@ library.add(
   faGithub,
   faJava,
   faJs,
+  faMagnifyingGlass,
   faMoon,
   faPhp,
   faPython,
