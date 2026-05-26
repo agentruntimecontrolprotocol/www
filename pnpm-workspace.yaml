@@ -1,2 +1,0 @@
-patchedDependencies:
-  '@nficano/inkwell': patches/@nficano__inkwell.patch
