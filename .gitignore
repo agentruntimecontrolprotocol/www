@@ -28,3 +28,4 @@ logs
 content/*
 !content/home.md
 public/diagrams
+.vercel
