@@ -1,0 +1,18 @@
+<script setup lang="ts">
+defineProps<{
+  items: Array<{ title?: string; description?: string }>;
+}>();
+</script>
+
+<template>
+  <div class="reveal md:ml-28 max-w-[44rem] grid grid-cols-1 md:grid-cols-2 gap-px bg-line border border-line rounded-lg overflow-hidden">
+    <div v-for="item in items" :key="item.title" class="bg-paper p-6">
+      <div class="font-mono text-[0.74rem] tracking-mono-wide uppercase text-accent mb-[0.6rem]">
+        {{ item.title }}
+      </div>
+      <div class="text-[0.98rem] text-ink-soft leading-[1.5]">
+        {{ item.description }}
+      </div>
+    </div>
+  </div>
+</template>

@@ -1,2 +1,328 @@
+/* ============================================================================
+   INKWELL — editorial-technical theme for Nuxt UI Pro v3 / Tailwind v4
+   Paper + ink, monospace signal, single vermilion accent.
+
+   Source of truth for design tokens, base styles, and component classes.
+   Light is default; Nuxt UI's color-mode toggles `.dark` on <html>.
+   ============================================================================ */
+
 @import "tailwindcss";
 @import "@nuxt/ui-pro";
+
+/* ----------------------------------------------------------------------------
+   1. Static palettes — vermilion (primary) + inkwell (neutral).
+      Wired into Nuxt UI via app.config.ts → ui.colors.{primary,neutral}.
+   ---------------------------------------------------------------------------- */
+@theme static {
+  --color-vermilion-50:  #fdf2ec;
+  --color-vermilion-100: #fcdfd0;
+  --color-vermilion-200: #f8c1a3;
+  --color-vermilion-300: #f29c70;
+  --color-vermilion-400: #e87749;
+  --color-vermilion-500: #d65628;
+  --color-vermilion-600: #c2431c;
+  --color-vermilion-700: #9f3416;
+  --color-vermilion-800: #7d2911;
+  --color-vermilion-900: #5e1f0d;
+  --color-vermilion-950: #391108;
+
+  --color-inkwell-50:  #fbf8f1;
+  --color-inkwell-100: #f5f1e8;
+  --color-inkwell-200: #e8e1d3;
+  --color-inkwell-300: #ddd5c5;
+  --color-inkwell-400: #9a9385;
+  --color-inkwell-500: #756e62;
+  --color-inkwell-600: #5a5448;
+  --color-inkwell-700: #3c372f;
+  --color-inkwell-800: #2a2620;
+  --color-inkwell-900: #1b1815;
+  --color-inkwell-950: #110f0c;
+
+  /* type families — @nuxt/fonts auto-downloads these */
+  --font-mono:  "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: "Newsreader", Georgia, "Times New Roman", serif;
+
+  /* additive mono / chrome scale */
+  --text-micro: 0.66rem;
+  --text-mini:  0.72rem;
+  --text-small: 0.80rem;
+  --text-code:  0.82rem;
+
+  /* tracking */
+  --tracking-display:    -0.018em;
+  --tracking-mono:        0.06em;
+  --tracking-mono-wide:   0.14em;
+  --tracking-label:       0.18em;
+  --tracking-marker:      0.20em;
+
+  /* radius */
+  --radius-chip: 0.25rem;
+
+  /* motion */
+  --animate-blink: blink 1.15s steps(1) infinite;
+  --animate-rise:  rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes rise  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ----------------------------------------------------------------------------
+   2. Inkwell semantic tokens — runtime-swappable per scheme.
+      `--arcp-*` aliases exist for components that predate the rename.
+   ---------------------------------------------------------------------------- */
+@layer base {
+  :root, .light {
+    --bg:         var(--color-inkwell-100);
+    --paper:      var(--color-inkwell-50);
+    --ink:        var(--color-inkwell-900);
+    --ink-soft:   var(--color-inkwell-700);
+    --muted:      var(--color-inkwell-500);
+    --faint:      var(--color-inkwell-400);
+    --line:       var(--color-inkwell-300);
+    --line-soft:  var(--color-inkwell-200);
+    --accent:     var(--color-vermilion-600);
+    --accent-dim: #a8794d;
+    --code-bg:    #fcfaf4;
+    --str:        #4f6b3a;
+    --key:        #9a4a1f;
+  }
+
+  /* system pref — kicks in before color-mode hydrates, and on no-JS.
+     `:not(.light)` lets an explicit light selection still win on a dark OS. */
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      --bg:         var(--color-inkwell-950);
+      --paper:      #1b1813;
+      --ink:        #ece6da;
+      --ink-soft:   #c9c2b4;
+      --muted:      #8c8576;
+      --faint:      #5f5949;
+      --line:       #2b2820;
+      --line-soft:  #221f19;
+      --accent:     #f0612f;
+      --accent-dim: #c79968;
+      --code-bg:    #1a1813;
+      --str:        #9bbd76;
+      --key:        #e08a4c;
+    }
+  }
+
+  /* manual override — wins over system pref (set by Nuxt UI color-mode). */
+  .dark {
+    --bg:         var(--color-inkwell-950);
+    --paper:      #1b1813;
+    --ink:        #ece6da;
+    --ink-soft:   #c9c2b4;
+    --muted:      #8c8576;
+    --faint:      #5f5949;
+    --line:       #2b2820;
+    --line-soft:  #221f19;
+    --accent:     #f0612f;
+    --accent-dim: #c79968;
+    --code-bg:    #1a1813;
+    --str:        #9bbd76;
+    --key:        #e08a4c;
+  }
+
+  /* backward-compat aliases for existing components */
+  :root, .light, .dark {
+    --arcp-paper:      var(--bg);
+    --arcp-paper-soft: var(--paper);
+    --arcp-ink:        var(--ink);
+    --arcp-ink-soft:   var(--ink-soft);
+    --arcp-line:       var(--line);
+    --arcp-line-soft:  var(--line-soft);
+    --arcp-accent:     var(--accent);
+    --arcp-accent-dim: var(--accent-dim);
+    --arcp-code-bg:    var(--code-bg);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   3. Nuxt UI semantic tokens → Inkwell.
+      Overrides --ui-* so every <U…> component reads from the Inkwell palette.
+   ---------------------------------------------------------------------------- */
+@layer base {
+  :root, .light, .dark {
+    --ui-bg:           var(--bg);
+    --ui-bg-muted:     var(--line-soft);
+    --ui-bg-elevated:  var(--paper);
+    --ui-bg-accented:  var(--line);
+    --ui-bg-inverted:  var(--ink);
+
+    --ui-text:             var(--ink);
+    --ui-text-muted:       var(--muted);
+    --ui-text-toned:       var(--ink-soft);
+    --ui-text-dimmed:      var(--faint);
+    --ui-text-highlighted: var(--ink);
+    --ui-text-inverted:    var(--bg);
+
+    --ui-border:           var(--line);
+    --ui-border-muted:     var(--line-soft);
+    --ui-border-accented:  var(--ink-soft);
+    --ui-border-inverted:  var(--ink);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   4. Bridge Inkwell semantic tokens into Tailwind utilities.
+      Emits utilities like `bg-paper`, `text-ink`, `border-line`, etc.
+      `inline` resolves through the live CSS vars (no rebuild on scheme swap).
+
+      `muted` is intentionally omitted — Nuxt UI already owns text-muted /
+      bg-muted / border-muted via its namespaced tokens above, and we've
+      pointed those at the Inkwell --muted / --line-soft values.
+   ---------------------------------------------------------------------------- */
+@theme inline {
+  --color-bg:         var(--bg);
+  --color-paper:      var(--paper);
+  --color-ink:        var(--ink);
+  --color-ink-soft:   var(--ink-soft);
+  --color-faint:      var(--faint);
+  --color-line:       var(--line);
+  --color-line-soft:  var(--line-soft);
+  --color-accent:     var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-code-bg:    var(--code-bg);
+  --color-str:        var(--str);
+  --color-key:        var(--key);
+}
+
+/* ----------------------------------------------------------------------------
+   5. Base — document defaults, paper grain, selection, reduced motion.
+   ---------------------------------------------------------------------------- */
+@layer base {
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-serif);
+    -webkit-font-smoothing: antialiased;
+    font-size: 18px;
+    line-height: 1.62;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+
+  /* faint dotted grain for paper texture */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(var(--line-soft) 0.5px, transparent 0.5px);
+    background-size: 22px 22px;
+    opacity: 0.35;
+  }
+
+  ::selection { background: var(--accent); color: var(--bg); }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .reveal { opacity: 1 !important; transform: none !important; }
+    .arcp-caret { animation: none !important; }
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   6. Components — recurring spec-sheet patterns, reusable.
+   ---------------------------------------------------------------------------- */
+@layer components {
+
+  /* — labels & section chrome — */
+  .label {
+    @apply font-mono text-mini tracking-label uppercase text-muted font-medium;
+  }
+  .eyebrow {
+    @apply font-mono text-mini tracking-label uppercase text-accent font-medium;
+  }
+  .section-marker {
+    @apply font-mono text-small tracking-[0.1em] text-accent pt-2 border-t-2 border-accent;
+  }
+  .section-title {
+    @apply font-mono text-small tracking-marker uppercase text-muted font-medium pt-2;
+  }
+
+  /* — inline & block code — */
+  .term {
+    @apply font-mono text-ink bg-paper border border-line rounded-[3px] px-[0.34em] py-[0.05em];
+    font-size: 0.9em;
+  }
+  .code-window {
+    @apply bg-code-bg border border-line rounded-lg overflow-hidden;
+  }
+  .code-window__bar {
+    @apply flex items-center justify-between px-4 py-[0.6rem] border-b border-line
+           font-mono text-micro tracking-mono-wide uppercase text-muted;
+  }
+  .code-window__dots { @apply flex gap-[0.4rem]; }
+  .code-window__dots > i { @apply block w-[0.6rem] h-[0.6rem] rounded-full bg-line not-italic; }
+  .code-window pre {
+    @apply m-0 px-5 py-[1.15rem] overflow-x-auto font-mono text-code text-ink-soft;
+    line-height: 1.72;
+  }
+  /* syntax helpers */
+  .tok-key  { @apply text-key; }
+  .tok-str  { @apply text-str; }
+  .tok-punc { @apply text-faint; }
+
+  /* — chips — */
+  .chip {
+    @apply inline-flex items-center font-mono text-mini text-ink-soft
+           border border-line rounded-chip bg-code-bg px-[0.55rem] py-[0.28rem];
+  }
+
+  /* — bordered "envelope" container — */
+  .envelope {
+    @apply relative border border-ink-soft rounded-lg bg-paper p-[1.1rem];
+  }
+  .envelope__tag {
+    @apply absolute -top-[0.72rem] left-4 bg-bg px-[0.55rem]
+           font-mono text-micro tracking-mono-wide uppercase text-accent;
+  }
+  .envelope--dashed {
+    @apply border border-dashed border-accent-dim rounded-md bg-transparent;
+  }
+
+  /* — hairline divider — */
+  .rule { @apply border-0 border-t border-line; }
+
+  /* — arrow link / quiet CTA — */
+  .btn-arrow {
+    @apply inline-flex items-center gap-[0.6rem] font-mono text-ink no-underline
+           border-b-[1.5px] border-accent pb-[0.2rem] transition-all;
+    font-size: 0.92rem;
+  }
+  .btn-arrow:hover { @apply gap-[0.95rem] text-accent; }
+
+  /* — spec body copy — */
+  .spec-prose { @apply max-w-[42rem]; }
+  .spec-prose p { @apply mb-5 text-ink-soft; }
+  .spec-prose p:last-child { @apply mb-0; }
+  .spec-prose b { @apply text-ink font-medium; }
+  .spec-prose a {
+    @apply text-ink no-underline border-b border-accent-dim transition-colors;
+  }
+  .spec-prose a:hover { @apply border-accent; }
+
+  /* — scroll reveal (toggle .is-in via IntersectionObserver / Nuxt directive) — */
+  .reveal {
+    @apply opacity-0 translate-y-[18px];
+    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .reveal.is-in { @apply opacity-100 translate-y-0; }
+
+  /* — brand-mark blinking caret — */
+  .arcp-caret {
+    display: inline-block;
+    width: 0.5em;
+    height: 1.05em;
+    background: var(--accent);
+    margin-left: 0.28em;
+    transform: translateY(0.12em);
+    animation: var(--animate-blink);
+  }
+}

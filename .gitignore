@@ -24,5 +24,7 @@ logs
 !.env.example
 
 # Synced from sibling SDK + spec repos by scripts/sync-docs.mjs on every dev/build.
-content
+# content/home.md is hand-authored (the homepage source) and stays in the repo.
+content/*
+!content/home.md
 public/diagrams

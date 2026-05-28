@@ -1,25 +1,26 @@
-name: Build & Deploy
+name: Deploy
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: pages
+  group: vercel-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  # sync-docs.mjs pulls the SDK + spec docs from GitHub instead of sibling repos.
+  SDK_DOCS_REMOTE: '1'
+
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    env:
-      SDK_DOCS_REMOTE: '1'
     steps:
-      - name: Checkout site
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup pnpm
@@ -33,30 +34,28 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install Vercel CLI
+        run: pnpm add --global vercel@latest
 
-      - name: Sync SDK docs
-        run: pnpm sync:docs
+      - name: Resolve deploy target
+        id: target
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "prod=--prod" >> "$GITHUB_OUTPUT"
+            echo "env=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "prod=" >> "$GITHUB_OUTPUT"
+            echo "env=preview" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Generate static site
-        run: pnpm generate
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=${{ steps.target.outputs.env }} --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .output/public
+      - name: Build with Vercel
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FONTAWESOME_NPM_AUTH_TOKEN: ${{ secrets.FONTAWESOME_NPM_AUTH_TOKEN }}
+        run: vercel build ${{ steps.target.outputs.prod }} --token=${{ secrets.VERCEL_TOKEN }}
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt ${{ steps.target.outputs.prod }} --token=${{ secrets.VERCEL_TOKEN }}

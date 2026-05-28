@@ -7,6 +7,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const wwwRoot = resolve(here, '..');
 const arpcRoot = resolve(wwwRoot, '..');
 
+// In CI / Vercel the sibling SDK repos are not checked out, so pull docs
+// straight from GitHub instead of the local filesystem.
+const ORG = 'agentruntimecontrolprotocol';
+const REMOTE = ['1', 'true', 'yes'].includes(String(process.env.SDK_DOCS_REMOTE).toLowerCase());
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+
 const SDKS = [
   'csharp',
   'fsharp',
@@ -24,6 +30,7 @@ const SDKS = [
 const SOURCES = [
   ...SDKS.map((lang) => ({
     label: lang,
+    repo: `${lang}-sdk`,
     docs: join(arpcRoot, `${lang}-sdk`, 'docs'),
     contentDest: join(wwwRoot, 'content', lang),
     publicDiagrams: `/diagrams/${lang}`,
@@ -31,6 +38,7 @@ const SOURCES = [
   })),
   {
     label: 'spec',
+    repo: 'spec',
     docs: join(arpcRoot, 'spec', 'docs'),
     contentDest: join(wwwRoot, 'content', 'spec'),
     publicDiagrams: '/diagrams/spec',
@@ -148,7 +156,7 @@ async function ensureIndex(label, contentDest) {
   await writeFile(indexPath, lines.join('\n'));
 }
 
-async function syncSource({ label, docs, contentDest, publicDiagrams, diagramsDest }) {
+async function syncSourceLocal({ label, docs, contentDest, publicDiagrams, diagramsDest }) {
   if (!(await exists(docs))) {
     console.warn(`sync-docs: ${label.padEnd(10)}  skipped (missing ${relative(arpcRoot, docs)})`);
     return;
@@ -166,7 +174,87 @@ async function syncSource({ label, docs, contentDest, publicDiagrams, diagramsDe
   );
 }
 
+function ghHeaders(accept) {
+  const headers = { Accept: accept, 'User-Agent': 'arcp-sync-docs' };
+  if (GITHUB_TOKEN) headers.Authorization = `Bearer ${GITHUB_TOKEN}`;
+  return headers;
+}
+
+async function fetchDocsTree(repo, ref) {
+  const url = `https://api.github.com/repos/${ORG}/${repo}/git/trees/${ref}?recursive=1`;
+  const res = await fetch(url, { headers: ghHeaders('application/vnd.github+json') });
+  if (!res.ok) {
+    throw new Error(`GitHub tree ${repo}@${ref}: ${res.status} ${res.statusText} ${await res.text()}`);
+  }
+  const body = await res.json();
+  if (body.truncated) {
+    throw new Error(`GitHub tree ${repo}@${ref} was truncated; docs/ too large for a single tree request`);
+  }
+  return (body.tree ?? []).filter((e) => e.type === 'blob' && e.path.startsWith('docs/'));
+}
+
+async function fetchRaw(repo, ref, path, { binary = false } = {}) {
+  const url = `https://raw.githubusercontent.com/${ORG}/${repo}/${ref}/${path}`;
+  const res = await fetch(url, { headers: ghHeaders('*/*') });
+  if (!res.ok) {
+    throw new Error(`GitHub raw ${repo}/${path}: ${res.status} ${res.statusText}`);
+  }
+  return binary ? Buffer.from(await res.arrayBuffer()) : res.text();
+}
+
+async function syncSourceRemote({ label, repo, ref = 'main', contentDest, publicDiagrams, diagramsDest }) {
+  const blobs = await fetchDocsTree(repo, ref);
+
+  await rm(contentDest, { recursive: true, force: true });
+  await rm(diagramsDest, { recursive: true, force: true });
+
+  let mdCount = 0;
+  let diagramCount = 0;
+
+  for (const { path } of blobs) {
+    const rel = path.slice('docs/'.length); // path under docs/
+    const isDiagram = rel === 'diagrams' || rel.startsWith('diagrams/');
+
+    if (isDiagram) {
+      const sub = rel.slice('diagrams/'.length);
+      if (!sub) continue;
+      const data = await fetchRaw(repo, ref, path, { binary: true });
+      const to = join(diagramsDest, sub);
+      await mkdir(dirname(to), { recursive: true });
+      await writeFile(to, data);
+      diagramCount += 1;
+      continue;
+    }
+
+    if (!/\.(md|mdc)$/i.test(rel)) continue;
+    const segments = rel.split('/');
+    const name = segments.pop();
+    const targetName = /^readme\.mdc?$/i.test(name) ? name.replace(/^readme/i, 'index') : name;
+    const raw = await fetchRaw(repo, ref, path);
+    const rewritten = rewriteDiagramRefs(raw, publicDiagrams);
+    const to = join(contentDest, ...segments, targetName);
+    await mkdir(dirname(to), { recursive: true });
+    await writeFile(to, rewritten);
+    mdCount += 1;
+  }
+
+  await ensureIndex(label, contentDest);
+
+  console.log(
+    `sync-docs: ${label.padEnd(10)} <- github:${ORG}/${repo}@${ref}/docs  (${mdCount} docs, ${diagramCount} diagrams)`,
+  );
+}
+
+async function syncSource(source) {
+  if (REMOTE) {
+    await syncSourceRemote(source);
+  } else {
+    await syncSourceLocal(source);
+  }
+}
+
 async function main() {
+  console.log(`sync-docs: mode=${REMOTE ? 'remote (GitHub)' : 'local (sibling repos)'}`);
   for (const source of SOURCES) {
     await syncSource(source);
   }
