@@ -10,8 +10,11 @@ const arpcRoot = resolve(wwwRoot, '..');
 // In CI / Vercel the sibling SDK repos are not checked out, so pull docs
 // straight from GitHub instead of the local filesystem.
 const ORG = 'agentruntimecontrolprotocol';
-const REMOTE = ['1', 'true', 'yes'].includes(String(process.env.SDK_DOCS_REMOTE).toLowerCase());
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+const REMOTE = ["1", "true", "yes"].includes(
+  String(process.env["SDK_DOCS_REMOTE"]).toLowerCase(),
+);
+const GITHUB_TOKEN =
+  process.env["GITHUB_TOKEN"] || process.env["GH_TOKEN"] || "";
 
 const SDKS = [
   'csharp',
