@@ -84,7 +84,105 @@ function rewriteDiagramRefs(markdown, publicDiagramsBase) {
   return out;
 }
 
-async function copyMarkdownTree(src, dest, publicDiagramsBase) {
+const GH_REF = 'main';
+
+function splitHash(url) {
+  const i = url.search(/[#?]/);
+  return i === -1 ? [url, ''] : [url.slice(0, i), url.slice(i)];
+}
+
+// Resolve a relative link against a source file's docs-relative location and
+// return repo-root-relative path segments. A leading run of '..' means the link
+// escaped the repo root (only the sibling spec repo does this in practice).
+function resolveRepoPath(fileRel, link) {
+  const dir = fileRel.includes('/') ? fileRel.slice(0, fileRel.lastIndexOf('/')) : '';
+  const out = `docs/${dir}`.split('/').filter(Boolean);
+  for (const seg of link.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') {
+      if (out.length && out[out.length - 1] !== '..') out.pop();
+      else out.push('..');
+    } else {
+      out.push(seg);
+    }
+  }
+  return out;
+}
+
+// Turn content-tree segments into a clean page path: drop the .md/.mdc
+// extension and collapse readme/index to the directory index.
+function cleanPage(segs) {
+  const parts = [...segs];
+  if (parts.length) {
+    const last = parts[parts.length - 1].replace(/\.(md|mdc)$/i, '');
+    if (/^readme$/i.test(last) || last === 'index') parts.pop();
+    else parts[parts.length - 1] = last;
+  }
+  return parts.join('/');
+}
+
+// Rewrite a single relative markdown/HTML link. In-tree links become absolute
+// site paths (so they resolve regardless of trailing slashes); links into the
+// sibling spec repo map onto the published /spec page; links that escape into
+// repo files that the site does not publish (README, examples/, source code)
+// become canonical GitHub URLs.
+function transformLink(url, lang, repo, fileRel) {
+  // CommonMark allows angle-bracketed destinations: [text](<url>). Unwrap, then
+  // re-wrap so the inner URL is classified (and absolute URLs left untouched).
+  if (url.startsWith('<') && url.endsWith('>')) {
+    return `<${transformLink(url.slice(1, -1), lang, repo, fileRel)}>`;
+  }
+  if (/^(https?:)?\/\//i.test(url)) return url;
+  if (/^(mailto:|tel:|data:)/i.test(url)) return url;
+  if (url.startsWith('#') || url.startsWith('/')) return url;
+
+  const [path, hash] = splitHash(url);
+  if (path === '') return url;
+
+  const trailingSlash = path.endsWith('/');
+  const segs = resolveRepoPath(fileRel, path);
+
+  let lead = 0;
+  while (segs[lead] === '..') lead += 1;
+  const rest = segs.slice(lead);
+
+  // SDK doc -> sibling spec repo: ../../spec/docs/<x> resolves to spec/docs/<x>.
+  if (rest[0] === 'spec' && rest[1] === 'docs') {
+    return `/spec/${cleanPage(rest.slice(2))}${hash}`;
+  }
+
+  // Stays inside this repo's docs/ tree -> absolute on-site path. The diagrams/
+  // directory is not published as pages (only its rendered SVGs, via the
+  // diagram pass), so links to the Graphviz sources go to GitHub instead.
+  if (lead === 0 && segs[0] === 'docs' && segs[1] !== 'diagrams') {
+    const page = cleanPage(segs.slice(1));
+    return `/${lang}${page ? `/${page}` : ''}${hash}`;
+  }
+
+  // Anything else points at repo files the site doesn't publish.
+  const repoPath = segs.filter((s) => s !== '..').join('/');
+  const kind = trailingSlash ? 'tree' : 'blob';
+  return `https://github.com/${ORG}/${repo}/${kind}/${GH_REF}/${repoPath}${hash}`;
+}
+
+function rewriteContentLinks(markdown, lang, repo, fileRel) {
+  const fix = (url) => transformLink(url, lang, repo, fileRel);
+
+  // markdown links [text](url); leave images (![alt](url)) for the diagram pass.
+  let out = markdown.replace(
+    /(!?)\[([^\]]*)\]\(([^)\s]+)(\s+"[^"]*")?\)/g,
+    (full, bang, text, url, title) => (bang ? full : `[${text}](${fix(url)}${title ?? ''})`),
+  );
+
+  // <a href="..."> in inline HTML
+  out = out.replace(/(<a\b[^>]*?\bhref=)("([^"]+)"|'([^']+)')/gi, (full, head, _all, dq, sq) => {
+    return `${head}"${fix(dq ?? sq)}"`;
+  });
+
+  return out;
+}
+
+async function copyMarkdownTree(src, dest, ctx, relPrefix = '') {
   if (!(await exists(src))) return 0;
   let copied = 0;
   const entries = await readdir(src, { withFileTypes: true });
@@ -92,15 +190,17 @@ async function copyMarkdownTree(src, dest, publicDiagramsBase) {
     if (entry.name === 'diagrams') continue;
     const from = join(src, entry.name);
     if (entry.isDirectory()) {
-      copied += await copyMarkdownTree(from, join(dest, entry.name), publicDiagramsBase);
+      copied += await copyMarkdownTree(from, join(dest, entry.name), ctx, `${relPrefix}${entry.name}/`);
       continue;
     }
     if (!entry.isFile()) continue;
     if (!/\.(md|mdc)$/i.test(entry.name)) continue;
     const targetName = /^readme\.mdc?$/i.test(entry.name) ? entry.name.replace(/^readme/i, 'index') : entry.name;
     const to = join(dest, targetName);
+    const fileRel = `${relPrefix}${entry.name}`;
     const raw = await readFile(from, 'utf8');
-    const rewritten = rewriteDiagramRefs(raw, publicDiagramsBase);
+    let rewritten = rewriteDiagramRefs(raw, ctx.publicDiagrams);
+    rewritten = rewriteContentLinks(rewritten, ctx.lang, ctx.repo, fileRel);
     await mkdir(dirname(to), { recursive: true });
     await writeFile(to, rewritten);
     copied += 1;
@@ -159,7 +259,7 @@ async function ensureIndex(label, contentDest) {
   await writeFile(indexPath, lines.join('\n'));
 }
 
-async function syncSourceLocal({ label, docs, contentDest, publicDiagrams, diagramsDest }) {
+async function syncSourceLocal({ label, repo, docs, contentDest, publicDiagrams, diagramsDest }) {
   if (!(await exists(docs))) {
     console.warn(`sync-docs: ${label.padEnd(10)}  skipped (missing ${relative(arpcRoot, docs)})`);
     return;
@@ -168,7 +268,7 @@ async function syncSourceLocal({ label, docs, contentDest, publicDiagrams, diagr
   await rm(contentDest, { recursive: true, force: true });
   await rm(diagramsDest, { recursive: true, force: true });
 
-  const mdCount = await copyMarkdownTree(docs, contentDest, publicDiagrams);
+  const mdCount = await copyMarkdownTree(docs, contentDest, { publicDiagrams, lang: label, repo });
   const diagramCount = await copyDiagramsTree(join(docs, 'diagrams'), diagramsDest);
   await ensureIndex(label, contentDest);
 
@@ -234,7 +334,8 @@ async function syncSourceRemote({ label, repo, ref = 'main', contentDest, public
     const name = segments.pop();
     const targetName = /^readme\.mdc?$/i.test(name) ? name.replace(/^readme/i, 'index') : name;
     const raw = await fetchRaw(repo, ref, path);
-    const rewritten = rewriteDiagramRefs(raw, publicDiagrams);
+    let rewritten = rewriteDiagramRefs(raw, publicDiagrams);
+    rewritten = rewriteContentLinks(rewritten, label, repo, rel);
     const to = join(contentDest, ...segments, targetName);
     await mkdir(dirname(to), { recursive: true });
     await writeFile(to, rewritten);
