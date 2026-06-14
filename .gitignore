@@ -18,6 +18,9 @@ logs
 .fleet
 .idea
 
+# Local pre-launch audit output (screenshots + crawl JSON) from scripts/audit-*.mjs
+.audit
+
 # Local env files
 .env
 .env.*
