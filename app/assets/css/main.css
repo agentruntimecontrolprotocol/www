@@ -76,8 +76,9 @@
     --paper:      var(--color-inkwell-50);
     --ink:        var(--color-inkwell-900);
     --ink-soft:   var(--color-inkwell-700);
-    --muted:      var(--color-inkwell-500);
-    --faint:      var(--color-inkwell-400);
+    /* inkwell-600 (#5a5448 ≈ 6.8:1 on paper) — inkwell-500 fell just under AA (4.47:1) */
+    --muted:      var(--color-inkwell-600);
+    --faint:      var(--color-inkwell-500);
     --line:       var(--color-inkwell-300);
     --line-soft:  var(--color-inkwell-200);
     --accent:     var(--color-vermilion-600);
@@ -219,6 +220,18 @@
 
   ::selection { background: var(--accent); color: var(--bg); }
 
+  /* visible keyboard focus — nav links, the language select, buttons, and any
+     focusable element. Mouse clicks don't trigger :focus-visible. */
+  a:focus-visible,
+  button:focus-visible,
+  select:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -302,7 +315,9 @@
   .spec-prose { @apply max-w-[42rem]; }
   .spec-prose p { @apply mb-5 text-ink-soft; }
   .spec-prose p:last-child { @apply mb-0; }
-  .spec-prose b { @apply text-ink font-medium; }
+  /* MDC renders `**bold**` as <strong>; serif at 700 reads too heavy (heavier
+     than the h1). Lighten home emphasis to medium, the intended weight. */
+  .home-prose :is(b, strong) { @apply text-ink font-medium; }
   .spec-prose a {
     @apply text-ink no-underline border-b border-accent-dim transition-colors;
   }
@@ -326,3 +341,26 @@
     animation: var(--animate-blink);
   }
 }
+
+/* ----------------------------------------------------------------------------
+   7. Docs prose code panel — UNLAYERED so it wins over Nuxt UI Pro's `bg-muted`
+      utility (the default tan panel crushed token contrast). Lighter paper
+      panel + hairline border, matching the home code-window.
+   ---------------------------------------------------------------------------- */
+.prose pre {
+  background-color: var(--code-bg);
+  border-color: var(--line);
+}
+
+/* Nuxt UI Pro wraps each code block in `div.relative.my-5.group`; my-5 (20px top
+   + 20px bottom) stacks on the prose rhythm and reads as dead space. Tighten it. */
+.prose div.relative.group:has(> pre) {
+  margin-block: 0.75rem;
+}
+
+/* #12 — diagrams ship light + dark SVGs; show the variant matching the site
+   theme class (the source <picture> only followed the OS prefers-color-scheme,
+   so it ignored the in-app theme toggle). */
+.diagram-dark { display: none; }
+.dark .diagram-light { display: none; }
+.dark .diagram-dark { display: revert; }

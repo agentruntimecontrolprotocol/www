@@ -34,9 +34,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="home" class="relative z-[1]">
-    <HomeHeader :name="home.header.name" :tags="home.header.tags" />
+  <div v-if="home" class="home-prose relative z-[1]">
+    <AppHeader :tags="home.header.tags" />
 
+    <main>
     <!-- hero -->
     <div class="border-b border-line">
       <div class="max-w-[64rem] mx-auto px-[1.4rem] md:px-8 pt-16 pb-14 md:pt-[6.5rem] md:pb-[4.5rem]">
@@ -65,7 +66,7 @@ onMounted(() => {
       <div class="max-w-[64rem] mx-auto px-[1.4rem] md:px-8 py-[4.5rem]">
         <div class="reveal grid grid-cols-1 md:grid-cols-[5.5rem_1fr] gap-[0.6rem] md:gap-6 items-start mb-[1.8rem] md:mb-[2.4rem]">
           <div class="section-marker">{{ section.number }}</div>
-          <div class="section-title">{{ section.kicker }}</div>
+          <h2 class="section-title m-0">{{ section.kicker }}</h2>
         </div>
 
         <div v-if="section.body" class="reveal spec-prose md:ml-28">
@@ -79,6 +80,8 @@ onMounted(() => {
         <HomeScopeColumns v-if="section.kind === 'columns' && section.columns" :columns="section.columns" />
       </div>
     </section>
+
+    </main>
 
     <!-- footer -->
     <footer>

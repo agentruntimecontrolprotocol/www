@@ -75,10 +75,18 @@ function rewriteDiagramRefs(markdown, publicDiagramsBase) {
     return `${label}(${replaceUrl(url)}${title ?? ''})`;
   });
 
-  // html src / href
-  out = out.replace(/\b(src|href)=("([^"]+)"|'([^']+)')/g, (full, attr, _all, dq, sq) => {
-    const url = dq ?? sq;
-    return `${attr}="${replaceUrl(url)}"`;
+  // html src / href / srcset (srcset holds comma-separated "url [descriptor]" candidates)
+  out = out.replace(/\b(src|href|srcset)=("([^"]+)"|'([^']+)')/g, (full, attr, _all, dq, sq) => {
+    const value = dq ?? sq;
+    if (attr !== 'srcset') return `${attr}="${replaceUrl(value)}"`;
+    const rewritten = value
+      .split(',')
+      .map((candidate) => {
+        const [url, ...descriptor] = candidate.trim().split(/\s+/);
+        return url ? [replaceUrl(url), ...descriptor].join(' ') : candidate.trim();
+      })
+      .join(', ');
+    return `${attr}="${rewritten}"`;
   });
 
   return out;
@@ -182,6 +190,21 @@ function rewriteContentLinks(markdown, lang, repo, fileRel) {
   return out;
 }
 
+// GitHub-style <picture> swaps diagram SVGs via prefers-color-scheme (the OS
+// setting), which ignores the site's in-app theme toggle. Convert to two <img>s
+// toggled by the `.dark` class (see app/assets/css/main.css) so diagrams follow
+// the chosen theme.
+function swapDiagramPictures(markdown) {
+  return markdown.replace(
+    /<picture>\s*<source[^>]*srcset="([^"]+)"[^>]*>\s*(<img[^>]*?>)\s*<\/picture>/g,
+    (full, darkSrc, imgTag) => {
+      const light = imgTag.replace(/\s*\/?>\s*$/, '') + ' class="diagram-light" />';
+      const dark = `<img src="${darkSrc}" alt="" aria-hidden="true" class="diagram-dark" />`;
+      return `${light}\n${dark}`;
+    },
+  );
+}
+
 async function copyMarkdownTree(src, dest, ctx, relPrefix = '') {
   if (!(await exists(src))) return 0;
   let copied = 0;
@@ -201,6 +224,12 @@ async function copyMarkdownTree(src, dest, ctx, relPrefix = '') {
     const raw = await readFile(from, 'utf8');
     let rewritten = rewriteDiagramRefs(raw, ctx.publicDiagrams);
     rewritten = rewriteContentLinks(rewritten, ctx.lang, ctx.repo, fileRel);
+    // Dokka (Kotlin) prefixes API breadcrumbs with a stray `//`
+    // (e.g. `//[arcp](…)/[BearerAuth](…)`). Strip the leading slashes.
+    if (ctx.lang === 'kotlin') {
+      rewritten = rewritten.replace(/^\/\/(?=\[)/gm, '');
+    }
+    rewritten = swapDiagramPictures(rewritten);
     await mkdir(dirname(to), { recursive: true });
     await writeFile(to, rewritten);
     copied += 1;
@@ -269,7 +298,11 @@ async function syncSourceLocal({ label, repo, docs, contentDest, publicDiagrams,
   await rm(diagramsDest, { recursive: true, force: true });
 
   const mdCount = await copyMarkdownTree(docs, contentDest, { publicDiagrams, lang: label, repo });
-  const diagramCount = await copyDiagramsTree(join(docs, 'diagrams'), diagramsDest);
+  // Most repos keep rendered diagrams at docs/diagrams; some (typescript-sdk)
+  // keep them at the repo root instead.
+  const docsDiagrams = join(docs, 'diagrams');
+  const diagramsSrc = (await exists(docsDiagrams)) ? docsDiagrams : join(dirname(docs), 'diagrams');
+  const diagramCount = await copyDiagramsTree(diagramsSrc, diagramsDest);
   await ensureIndex(label, contentDest);
 
   console.log(
@@ -293,7 +326,11 @@ async function fetchDocsTree(repo, ref) {
   if (body.truncated) {
     throw new Error(`GitHub tree ${repo}@${ref} was truncated; docs/ too large for a single tree request`);
   }
-  return (body.tree ?? []).filter((e) => e.type === 'blob' && e.path.startsWith('docs/'));
+  // diagrams/ at the repo root is included because some repos (typescript-sdk)
+  // keep rendered diagrams there instead of under docs/.
+  return (body.tree ?? []).filter(
+    (e) => e.type === 'blob' && (e.path.startsWith('docs/') || e.path.startsWith('diagrams/')),
+  );
 }
 
 async function fetchRaw(repo, ref, path, { binary = false } = {}) {
