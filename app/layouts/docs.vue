@@ -4,6 +4,23 @@ const route = useRoute();
 const SDKS = ['csharp', 'fsharp', 'go', 'java', 'kotlin', 'php', 'python', 'ruby', 'rust', 'swift', 'typescript'];
 const LANGS = [...SDKS, 'spec'];
 
+// Display labels for the language switcher (route keys stay lowercase).
+const LANG_LABELS: Record<string, string> = {
+  csharp: 'C#',
+  fsharp: 'F#',
+  go: 'Go',
+  java: 'Java',
+  kotlin: 'Kotlin',
+  php: 'PHP',
+  python: 'Python',
+  ruby: 'Ruby',
+  rust: 'Rust',
+  swift: 'Swift',
+  typescript: 'TypeScript',
+  spec: 'Spec',
+};
+const LANG_ITEMS = LANGS.map((value) => ({ label: LANG_LABELS[value] ?? value, value }));
+
 const currentLang = computed(() => {
   const seg = route.path.split('/').filter(Boolean)[0];
   return LANGS.includes(seg ?? '') ? seg : 'spec';
@@ -88,7 +105,8 @@ watch(() => route.path, () => {
           <label class="block text-xs uppercase tracking-wider text-(--ui-text-muted) mb-2">Language</label>
           <USelect
             v-model="selectedLang"
-            :items="LANGS"
+            :items="LANG_ITEMS"
+            value-key="value"
             size="sm"
             class="w-full"
           />
